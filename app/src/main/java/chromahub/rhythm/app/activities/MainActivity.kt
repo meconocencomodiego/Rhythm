@@ -134,11 +134,10 @@ import androidx.compose.runtime.rememberCoroutineScope
 import chromahub.rhythm.app.shared.presentation.components.common.M3LinearLoader
 import chromahub.rhythm.app.shared.presentation.components.common.M3FourColorCircularLoader
 import androidx.compose.ui.platform.LocalHapticFeedback
-import androidx.compose.ui.hapticfeedback.HapticFeedbackType // Import HapticFeedbackType
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.material3.ButtonDefaults
 import chromahub.rhythm.app.shared.presentation.components.common.InitializationLoader
 import chromahub.rhythm.app.shared.presentation.components.PermissionHandler
-import chromahub.rhythm.app.shared.presentation.components.dialogs.BetaProgramPopup
 import chromahub.rhythm.app.shared.presentation.components.dialogs.TrackCorruptionDialog
 import chromahub.rhythm.app.features.local.presentation.screens.OnboardingScreen
 import chromahub.rhythm.app.features.local.presentation.screens.onboarding.OnboardingStep
@@ -152,9 +151,9 @@ class MainActivity : AppCompatActivity() {
     private val TAG = "MainActivity"
     private val musicViewModel: MusicViewModel by viewModels()
     private val themeViewModel: ThemeViewModel by viewModels()
-    private val appUpdaterViewModel: AppUpdaterViewModel by viewModels() // Inject AppUpdaterViewModel
+    private val appUpdaterViewModel: AppUpdaterViewModel by viewModels()
     private val streamingMusicViewModel: StreamingMusicViewModel by viewModels()
-    private lateinit var appSettings: AppSettings // Declare AppSettings
+    private lateinit var appSettings: AppSettings
     
     companion object {
         const val DISPLAY_AUDIO_EFFECT_CONTROL_PANEL_REQUEST = 1002
@@ -162,7 +161,6 @@ class MainActivity : AppCompatActivity() {
         const val EXTRA_OPEN_QUEUE = "OPEN_QUEUE"
     }
     
-    // Track coroutine jobs to prevent memory leaks
     private val lifecycleScopeJobs = mutableListOf<kotlinx.coroutines.Job>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -170,9 +168,8 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
-        appSettings = AppSettings.getInstance(applicationContext) // AppSettings already initialized in Application
+        appSettings = AppSettings.getInstance(applicationContext)
         
-        // We'll delay intent handling until after initialization
         val startupIntent = intent
         
         setContent {
@@ -190,19 +187,15 @@ class MainActivity : AppCompatActivity() {
             val themeIntensity by appSettings.themeIntensity.collectAsState()
             val appMode by appSettings.appMode.collectAsState()
             
-            // Determine the theme based on settings
             val isDarkTheme = if (useSystemTheme) {
-                // Use system default
                 androidx.compose.foundation.isSystemInDarkTheme()
             } else {
-                // Use app setting
                 darkMode
             }
             
             RhythmTheme(
                 darkTheme = isDarkTheme,
                 amoledTheme = amoledTheme && isDarkTheme,
-                // Use dynamic colors (Monet) when system theme is enabled
                 dynamicColor = useDynamicColors && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
                 customColorScheme = customColorScheme,
                 customFont = customFont,
@@ -218,20 +211,14 @@ class MainActivity : AppCompatActivity() {
                     color = MaterialTheme.colorScheme.background
                 ) {
                     FestiveOverlayFromSettings {
-                        // Show the initialization loader first, then transition to the app
-                        val hasShownBetaPopup by appSettings.hasShownBetaPopup.collectAsState()
-                        var showBetaPopup by remember { mutableStateOf(false) }
-                        val currentAppVersion by appUpdaterViewModel.currentVersion.collectAsState() // Observe current version
-                        val updateChannel by appUpdaterViewModel.updateChannel.collectAsState() // Observe update channel
+                        val currentAppVersion by appUpdaterViewModel.currentVersion.collectAsState()
+                        val updateChannel by appUpdaterViewModel.updateChannel.collectAsState()
                         var showMediaScanLoader by rememberSaveable { mutableStateOf(false) }
 
-                    // State for permission handling and app initialization.
-                    // rememberSaveable so these survive configuration changes (e.g. system theme toggle)
-                    // which recreate the Activity but must not re-show the loader or re-enter loading.
                     var shouldShowSettingsRedirect by remember { mutableStateOf(false) }
                     var isLoading by rememberSaveable { mutableStateOf(true) }
                     var isInitializingApp by rememberSaveable { mutableStateOf(false) }
-                    val lastCrashLog by appSettings.lastCrashLog.collectAsState() // Observe last crash log
+                    val lastCrashLog by appSettings.lastCrashLog.collectAsState()
 
                     val pendingDeleteRequest by musicViewModel.pendingDeleteRequest.collectAsState()
                     val deletePermissionLauncher = rememberLauncherForActivityResult(
@@ -261,22 +248,14 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Runs once the music library has finished initializing.
                     var hasHandledStartupIntents by rememberSaveable { mutableStateOf(false) }
                     fun onInitializationComplete() {
-                        isLoading = false // Stop initial loading after initialization
-
-                        // Show beta popup if it hasn't been shown before AND the current version is a pre-release
-                        if (!hasShownBetaPopup && currentAppVersion.isPreRelease) {
-                            showBetaPopup = true
-                        }
+                        isLoading = false
 
                         // Check for previous crash logs
                         lastCrashLog?.let {
-                            // CrashActivity is now responsible for showing the dialog
                         }
                         
-                        // Handle startup intents once, after the library is ready.
                         if (!hasHandledStartupIntents) {
                             hasHandledStartupIntents = true
                             val shouldHandleStartupIntent = startupIntent?.let {
@@ -289,7 +268,6 @@ class MainActivity : AppCompatActivity() {
                             } == true
 
                             if (shouldHandleStartupIntent) {
-                                // Small delay to ensure view models are ready, then handle intent
                                 val startupIntentJob = lifecycleScope.launch {
                                     kotlinx.coroutines.delay(500)
                                     handleIntent(startupIntent)
@@ -299,7 +277,6 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    // Show the initialization loader until the music library is ready.
                     val isInitialized by musicViewModel.isInitialized.collectAsState()
                     LaunchedEffect(isInitialized) {
                         if (isInitialized) {
@@ -322,7 +299,6 @@ class MainActivity : AppCompatActivity() {
                         ) {
                             PermissionHandler(
                                 onPermissionsGranted = {
-                                    // RhythmNavigation handles mode switching between Local and Streaming
                                     RhythmNavigation(
                                         musicViewModel = musicViewModel,
                                         themeViewModel = themeViewModel,
@@ -364,7 +340,6 @@ class MainActivity : AppCompatActivity() {
                                     )
                                 }
 
-                                // App logo, name and tagline at the bottom (matches splash branding)
                                 Column(
                                     modifier = Modifier
                                         .align(Alignment.BottomCenter)
@@ -435,15 +410,6 @@ class MainActivity : AppCompatActivity() {
                             }
                         }
 
-                        // Beta Program Popup
-                        BetaProgramPopup(
-                            showDialog = showBetaPopup,
-                            onDismiss = {
-                                showBetaPopup = false
-                                appSettings.setHasShownBetaPopup(true)
-                            }
-                        )
-
                         // Track Corruption Popup
                         val showCorruptionDialog by musicViewModel.showCorruptionDialog.collectAsState()
                         val corruptedTrackName by musicViewModel.corruptedTrackName.collectAsState()
@@ -458,7 +424,6 @@ class MainActivity : AppCompatActivity() {
                             )
                         }
 
-                        // Show media scan loader as a small floating chip with swipe-to-dismiss at the top Center
                         val coroutineScope = rememberCoroutineScope()
                         val swipeOffsetX = remember { Animatable(0f) }
                         val swipeOffsetY = remember { Animatable(0f) }
@@ -752,7 +717,6 @@ class MainActivity : AppCompatActivity() {
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        // Handle the new intent
         handleIntent(intent)
     }
     
@@ -764,12 +728,9 @@ class MainActivity : AppCompatActivity() {
         try {
             val shouldOpenPlayer = intent.getBooleanExtra(EXTRA_OPEN_PLAYER, false)
 
-            // OPEN_PLAYER/OPEN_QUEUE are navigation hints, not content intents.
             if (shouldOpenPlayer) {
                 ShortcutManagerCompat.reportShortcutUsed(this, "shortcut_open_player")
                 Log.d(TAG, "Opening player from external shortcut intent")
-                // The player should automatically show since the song is already playing
-                // No additional action needed as the navigation will handle it
                 return
             }
             
@@ -799,7 +760,6 @@ class MainActivity : AppCompatActivity() {
                     ServiceStartUtils.startServiceSafely(this, prevIntent, TAG, "shortcut_skip_previous")
                 }
                 Intent.ACTION_VIEW -> {
-                    // Handle external audio file with validation
                     intent.data?.let { uri ->
                         Log.d(TAG, "Received ACTION_VIEW intent with URI: $uri")
                         
@@ -830,19 +790,16 @@ class MainActivity : AppCompatActivity() {
     
     private fun isValidAndSafeUri(uri: Uri): Boolean {
         return try {
-            // Validate URI scheme - be more permissive
             val scheme = uri.scheme?.lowercase()
             if (scheme != "content" && scheme != "file" && scheme != "android.resource") {
                 Log.w(TAG, "Unsupported URI scheme: $scheme for URI: $uri")
                 return false
             }
             
-            // For content URIs, be more permissive with authorities
             if (scheme == "content") {
                 val authority = uri.authority
                 Log.d(TAG, "Content URI authority: $authority")
                 
-                // Allow more authorities, including third-party file managers
                 val suspiciousAuthorities = setOf(
                     "com.malicious.app",
                     "suspicious.authority"
@@ -854,7 +811,6 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            // Validate file path for file URIs - be more permissive
             if (scheme == "file") {
                 val path = uri.path
                 if (path == null) {
@@ -863,7 +819,6 @@ class MainActivity : AppCompatActivity() {
                 }
                 
                 try {
-                    // Check for path traversal attempts but be less strict
                     val file = java.io.File(path)
                     if (!file.exists()) {
                         Log.w(TAG, "File does not exist: $path")
@@ -875,10 +830,8 @@ class MainActivity : AppCompatActivity() {
                 }
             }
             
-            // Try to access the URI to verify it exists and is readable
             try {
                 contentResolver.openInputStream(uri)?.use { inputStream ->
-                    // URI is accessible, try reading a few bytes to ensure it's valid
                     val buffer = ByteArray(8)
                     inputStream.read(buffer)
                     Log.d(TAG, "URI is accessible and readable: $uri")
@@ -901,7 +854,6 @@ class MainActivity : AppCompatActivity() {
     private fun handleExternalAudioFile(uri: Uri) {
         Log.d(TAG, "Handling external audio file: $uri")
         
-        // Validate URI and check if it's an audio file
         if (!isValidAudioUri(uri)) {
             Log.e(TAG, "Invalid or unsupported audio file: $uri")
             Toast.makeText(applicationContext, R.string.mainactivity_unsupported_file_format, Toast.LENGTH_SHORT).show()
@@ -911,10 +863,8 @@ class MainActivity : AppCompatActivity() {
         val mimeType = MediaUtils.getMimeType(applicationContext, uri)
         Log.d(TAG, "File is recognized as audio with mime type: $mimeType")
         
-        // Extract metadata from the audio file with proper error handling
         val job = lifecycleScope.launch {
             try {
-                // Start the service with proper initialization waiting
                 val serviceStarted = startMediaServiceAndWait()
                 if (!serviceStarted) {
                     Log.e(TAG, "Failed to start media service")
@@ -922,14 +872,12 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
                 
-                // Extract metadata on a background thread
                 val song = withContext(Dispatchers.IO) {
                     MediaUtils.extractMetadataFromUri(applicationContext, uri)
                 }
                 
                 Log.d(TAG, "Extracted song metadata: ${song.title} by ${song.artist} from ${song.album}")
                 
-                // Ensure service connection with timeout
                 val serviceConnected = waitForServiceConnection(timeoutMs = 5000)
                 if (!serviceConnected) {
                     Log.w(TAG, "Service connection timeout, attempting fallback")
@@ -937,10 +885,8 @@ class MainActivity : AppCompatActivity() {
                     return@launch
                 }
                 
-                // Play the external file
                 musicViewModel.playExternalAudioFile(song)
                 
-                // Verify playback started with timeout
                 val playbackStarted = waitForPlaybackStart(timeoutMs = 3000)
                 if (!playbackStarted) {
                     Log.w(TAG, "Playback didn't start, using fallback method")
@@ -958,7 +904,6 @@ class MainActivity : AppCompatActivity() {
             }
         }
         
-        // Track the job for cleanup
         lifecycleScopeJobs.add(job)
     }
     
@@ -1022,7 +967,6 @@ class MainActivity : AppCompatActivity() {
                 return false
             }
             
-            // Wait for service to be ready
             var attempts = 0
             while (attempts < 10 && !musicViewModel.isServiceConnected()) {
                 delay(100)
@@ -1054,7 +998,7 @@ class MainActivity : AppCompatActivity() {
     
     private suspend fun waitForPlaybackStart(timeoutMs: Long): Boolean {
         val startTime = System.currentTimeMillis()
-        delay(500) // Initial delay to let playback initialize
+        delay(500)
         
         while (System.currentTimeMillis() - startTime < timeoutMs) {
             if (musicViewModel.isPlaying()) {
@@ -1068,9 +1012,10 @@ class MainActivity : AppCompatActivity() {
     private suspend fun fallbackPlayExternalFile(uri: Uri) {
         try {
             Log.d(TAG, "Using direct service intent as fallback")
-            val playIntent = Intent(applicationContext, chromahub.rhythm.app.infrastructure.service.MediaPlaybackService::class.java)
-            playIntent.action = chromahub.rhythm.app.infrastructure.service.MediaPlaybackService.ACTION_PLAY_EXTERNAL_FILE
-            playIntent.data = uri
+            val playIntent = Intent(applicationContext, chromahub.rhythm.app.infrastructure.service.MediaPlaybackService::class.java).apply {
+                action = chromahub.rhythm.app.infrastructure.service.MediaPlaybackService.ACTION_PLAY_EXTERNAL_FILE
+                data = uri
+            }
 
             val started = ServiceStartUtils.startServiceSafely(
                 context = applicationContext,
@@ -1083,7 +1028,6 @@ class MainActivity : AppCompatActivity() {
                 return
             }
             
-            // Give fallback some time to start
             delay(1000)
             if (!musicViewModel.isPlaying()) {
                 Toast.makeText(applicationContext, R.string.mainactivity_unable_to_play_audio, Toast.LENGTH_SHORT).show()
@@ -1103,7 +1047,6 @@ class MainActivity : AppCompatActivity() {
         Log.d(TAG, "MainActivity onDestroy - cleaning up resources")
         musicViewModel.ensurePlaylistsSaved()
         
-        // Cancel all tracked coroutine jobs to prevent memory leaks
         lifecycleScopeJobs.forEach { job ->
             if (job.isActive) {
                 job.cancel()
@@ -1112,8 +1055,6 @@ class MainActivity : AppCompatActivity() {
         }
         lifecycleScopeJobs.clear()
         
-        // Auto-trim cache if usage exceeds 90% of max.
-        // Run in a standalone CoroutineScope since lifecycleScope is cancelled when super.onDestroy() runs.
         kotlinx.coroutines.CoroutineScope(Dispatchers.IO).launch {
             try {
                 val maxSize = appSettings.maxCacheSize.value
@@ -1126,7 +1067,6 @@ class MainActivity : AppCompatActivity() {
         super.onDestroy()
     }
     
-    // Helper function to get step name for accessibility
     private fun getStepName(step: OnboardingStep): String {
         return when (step) {
             OnboardingStep.WELCOME -> "Welcome"
@@ -1151,4 +1091,5 @@ class MainActivity : AppCompatActivity() {
             OnboardingStep.SETUP_FINISHED -> "Setup Finished"
             OnboardingStep.COMPLETE -> "Complete"
         }
-}}
+    }
+}
