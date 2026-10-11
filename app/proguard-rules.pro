@@ -81,3 +81,8 @@
 -dontwarn java.awt.**
 -dontwarn javax.sound.**
 -dontwarn javax.swing.**
+# Reglas para NewPipeExtractor
+-keep class org.schabi.newpipe.extractor.** { *; }
+-dontwarn org.schabi.newpipe.extractor.**
+-keep class org.mozilla.javascript.** { *; }
+-dontwarn org.mozilla.javascript.**
