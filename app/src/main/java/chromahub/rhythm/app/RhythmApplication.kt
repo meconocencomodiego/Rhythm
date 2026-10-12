@@ -5,6 +5,8 @@
 
 package chromahub.rhythm.app
 
+import org.schabi.newpipe.extractor.NewPipe
+import chromahub.rhythm.app.infrastructure.network.NewPipeDownloader
 import android.app.Application
 import android.content.ComponentCallbacks2
 import android.os.Build
@@ -54,6 +56,9 @@ class RhythmApplication : Application(), ImageLoaderFactory {
     
     override fun onCreate() {
         super.onCreate()
+
+        // Inicializar motor local NewPipeExtractor
+        NewPipe.init(NewPipeDownloader.getInstance())
         
         instance = this
         
