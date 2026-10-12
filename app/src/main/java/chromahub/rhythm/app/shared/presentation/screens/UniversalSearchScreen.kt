@@ -68,6 +68,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.viewmodel.compose.viewModel
+import chromahub.rhythm.app.infrastructure.network.NewPipeAudioExtractor
+import chromahub.rhythm.app.infrastructure.network.OnlineTrackResult
 import android.net.Uri
 import chromahub.rhythm.app.R
 import chromahub.rhythm.app.shared.presentation.components.bottomsheets.AddToPlaylistBottomSheet
@@ -239,9 +241,18 @@ fun UniversalSearchScreen(
         }
     }
 
+   var onlineTracks by remember { mutableStateOf<List<OnlineTrackResult>>(emptyList()) }
+    var isOnlineLoading by remember { mutableStateOf(false) }
+
     LaunchedEffect(query) {
-        if (query.isNotBlank() && streamingQuery != query) {
-            streamingViewModel.search(query)
+        if (query.isNotBlank()) {
+            delay(400) // Espera 400ms a que el usuario termine de teclear
+            isOnlineLoading = true
+            onlineTracks = NewPipeAudioExtractor.searchTracks(query)
+            isOnlineLoading = false
+        } else {
+            onlineTracks = emptyList()
+            isOnlineLoading = false
         }
     }
 
@@ -278,11 +289,42 @@ fun UniversalSearchScreen(
     }
 
     val matchedStreamingSongs = if (filterSongs) streamingResults.songs else emptyList()
+    val matchedOnlineSongs = remember(onlineTracks, filterSongs) {
+        if (!filterSongs) emptyList()
+        else onlineTracks.map { track ->
+            Song(
+                id = track.id.ifBlank { track.webUrl },
+                title = track.title,
+                artist = track.artist,
+                album = "YouTube • Deezer HD",
+                albumId = "online_stream",
+                duration = track.durationSeconds * 1000,
+                uri = track.webUrl.toUri(),
+                artworkUri = (track.hdArtworkUrl ?: track.thumbnailUrl).toUri(),
+                trackNumber = 0,
+                year = 0,
+                genre = "Online",
+                albumArtist = track.artist
+            )
+        }
+    }
+
+    val playOnlineSong: (Song) -> Unit = { song ->
+        coroutineScope.launch {
+            Toast.makeText(context, "Cargando audio en alta calidad...", Toast.LENGTH_SHORT).show()
+            val streamUrl = NewPipeAudioExtractor.resolveAudioStream(song.id)
+            if (streamUrl != null) {
+                onLocalSongClick(song.copy(uri = streamUrl.toUri()))
+            } else {
+                Toast.makeText(context, "No se pudo obtener el audio", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
     val matchedStreamingAlbums = if (filterAlbums) streamingResults.albums else emptyList()
     val matchedStreamingArtists = if (filterArtists) streamingResults.artists else emptyList()
     val matchedStreamingPlaylists = if (filterPlaylists) streamingResults.playlists else emptyList()
 
-    val hasResults = matchedLocalSongs.isNotEmpty() || matchedStreamingSongs.isNotEmpty() ||
+    val hasResults = matchedLocalSongs.isNotEmpty() || matchedOnlineSongs.isNotEmpty() || matchedStreamingSongs.isNotEmpty() ||
             matchedLocalAlbums.isNotEmpty() || matchedStreamingAlbums.isNotEmpty() ||
             matchedLocalArtists.isNotEmpty() || matchedStreamingArtists.isNotEmpty() ||
             matchedLocalPlaylists.isNotEmpty() || matchedStreamingPlaylists.isNotEmpty()
@@ -696,19 +738,19 @@ fun UniversalSearchScreen(
                                 }
                             } else {
                                 val allSongs = buildList {
-                                    matchedLocalSongs.take(3).forEach { song ->
-                                        add(SongSearchItem("LOCAL", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
-                                            if (query.isNotBlank()) localViewModel.addSearchQuery(query)
-                                            handleAction("LOCAL") { onLocalSongClick(song) }
-                                        })
-                                    }
-                                    matchedStreamingSongs.take(3).forEach { song ->
-                                        add(SongSearchItem("STREAMING", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
-                                            if (query.isNotBlank()) localViewModel.addSearchQuery(query)
-                                            handleAction("STREAMING") { onStreamingSongClick(song) }
-                                        })
-                                    }
-                                }
+        matchedLocalSongs.take(3).forEach { song ->
+            add(SongSearchItem("LOCAL", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
+                if (query.isNotBlank()) localViewModel.addSearchQuery(query)
+                handleAction("LOCAL") { onLocalSongClick(song) }
+            })
+        }
+        matchedOnlineSongs.take(5).forEach { song ->
+            add(SongSearchItem("STREAMING", song.title, "${song.artist} • YouTube HD", song.artworkUri, song) {
+                if (query.isNotBlank()) localViewModel.addSearchQuery(query)
+                playOnlineSong(song)
+            })
+        }
+    }
 
                                 if (allSongs.isNotEmpty()) {
                                     item(key = "songs_group") {
@@ -913,7 +955,7 @@ fun UniversalSearchScreen(
                                 }
                             }
 
-                            if (isStreamingLoading) {
+                            if (isOnlineLoading) {
                                 item(key = "streaming_loading_right") {
                                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp).animateItem(), contentAlignment = Alignment.Center) {
                                         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -944,19 +986,19 @@ fun UniversalSearchScreen(
                             }
                         } else {
                             val allSongs = buildList {
-                                matchedLocalSongs.take(3).forEach { song ->
-                                    add(SongSearchItem("LOCAL", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
-                                        if (query.isNotBlank()) localViewModel.addSearchQuery(query)
-                                        handleAction("LOCAL") { onLocalSongClick(song) }
-                                    })
-                                }
-                                matchedStreamingSongs.take(3).forEach { song ->
-                                    add(SongSearchItem("STREAMING", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
-                                        if (query.isNotBlank()) localViewModel.addSearchQuery(query)
-                                        handleAction("STREAMING") { onStreamingSongClick(song) }
-                                    })
-                                }
-                            }
+            matchedLocalSongs.take(3).forEach { song ->
+                add(SongSearchItem("LOCAL", song.title, "${song.artist} • ${song.album}", song.artworkUri, song) {
+                    if (query.isNotBlank()) localViewModel.addSearchQuery(query)
+                    handleAction("LOCAL") { onLocalSongClick(song) }
+                })
+            }
+            matchedOnlineSongs.take(5).forEach { song ->
+                add(SongSearchItem("STREAMING", song.title, "${song.artist} • YouTube HD", song.artworkUri, song) {
+                    if (query.isNotBlank()) localViewModel.addSearchQuery(query)
+                    playOnlineSong(song)
+                })
+            }
+        }
 
                             if (allSongs.isNotEmpty()) {
                                 item(key = "songs_group") {
