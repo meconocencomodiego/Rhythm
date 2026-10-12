@@ -340,8 +340,6 @@ dependencies {
     implementation("com.github.TeamNewPipe.NewPipeExtractor:extractor:v0.24.4")
 }
 
-}
-
 composeCompiler {
     includeComposeMappingFile.set(false)
 }
