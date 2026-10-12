@@ -685,7 +685,7 @@ fun UniversalSearchScreen(
                     }
                 }
             } else {
-                if (!hasResults && !isStreamingLoading) {
+                if (!hasResults && !isStreamingLoading && !isOnlineLoading) {
                     LazyColumn(
                         modifier = Modifier
                             .fillMaxSize()
@@ -730,7 +730,7 @@ fun UniversalSearchScreen(
                             ),
                             verticalArrangement = Arrangement.spacedBy(16.dp)
                         ) {
-                            if (isStreamingLoading && !hasResults) {
+                            if ((isStreamingLoading || isOnlineLoading) && !hasResults) {
                                 item(key = "loading_left") {
                                     Box(modifier = Modifier.fillMaxWidth().padding(vertical = 48.dp), contentAlignment = Alignment.Center) {
                                         M3CircularLoader(modifier = Modifier.size(48.dp), strokeWidth = 4f)
