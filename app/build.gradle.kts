@@ -338,7 +338,7 @@ dependencies {
     // LeakCanary for memory leak detection (debug builds only)
     debugImplementation(libs.com.squareup.leakcanary.leakcanary.android)
     ...
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.24.4")
+    implementation("com.github.TeamNewPipe.NewPipeExtractor:extractor:v0.24.4")
 }
 
 }
